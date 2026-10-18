@@ -5,6 +5,10 @@
   </picture>
 </p>
 
+<p align="center">
+  <img src="images/banner.png" alt="IoTaWatt Plus gauge feeding surplus and grid import readings to a solar-powered house" width="100%">
+</p>
+
 # IoTaWatt Plus
 
 [![hacs_badge](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)](https://hacs.xyz/)
