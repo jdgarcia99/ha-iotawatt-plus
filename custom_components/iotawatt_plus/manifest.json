@@ -1,0 +1,14 @@
+{
+  "domain": "iotawatt_plus",
+  "name": "IoTaWatt Plus",
+  "codeowners": [
+    "@jdgarcia99"
+  ],
+  "config_flow": true,
+  "documentation": "https://github.com/jdgarcia99/ha-iotawatt-plus",
+  "integration_type": "device",
+  "iot_class": "local_polling",
+  "issue_tracker": "https://github.com/jdgarcia99/ha-iotawatt-plus/issues",
+  "requirements": [],
+  "version": "0.1.0"
+}

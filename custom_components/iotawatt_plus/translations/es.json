@@ -1,0 +1,109 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "IoTaWatt Plus",
+        "description": "Dirección IP o nombre del IoTaWatt en tu red.",
+        "data": {
+          "host": "Dirección"
+        }
+      },
+      "settings": {
+        "title": "Ajustes de IoTaWatt Plus",
+        "data": {
+          "scan_interval": "Intervalo de lectura de potencia",
+          "energy_interval": "Intervalo de lectura de energía",
+          "device_interval": "Intervalo de lectura del diagnóstico",
+          "request_timeout": "Tiempo máximo de espera",
+          "deadband": "Cambio mínimo para guardar un valor",
+          "max_age": "Guardar al menos cada",
+          "grid_series": "Canal de la red eléctrica",
+          "surplus_windows": "Ventanas de media del excedente",
+          "channels": "Canales"
+        },
+        "data_description": {
+          "scan_interval": "Cada cuánto se consulta la potencia (2–60 s). Las automatizaciones ven siempre el último valor.",
+          "energy_interval": "Cada cuánto se leen los kWh acumulados que calcula el IoTaWatt.",
+          "device_interval": "Cada cuánto se leen firmware, WiFi y tiempo encendido.",
+          "request_timeout": "Espera máxima de cada consulta antes de marcar los sensores como no disponibles.",
+          "deadband": "Solo se guarda un nuevo estado de potencia si cambia al menos esto. Reduce mucho el tamaño de la base de datos.",
+          "max_age": "Aunque no cambie, el valor se guarda como mínimo cada este tiempo.",
+          "grid_series": "Canal con signo: positivo = importas de la red, negativo = inyectas.",
+          "surplus_windows": "Segundos separados por comas. Se crea un sensor de «excedente medio» por cada ventana (p. ej. 30, 60, 300).",
+          "channels": "Entradas y salidas para las que se crean sensores. Déjalo vacío para todas."
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "No se puede conectar con el IoTaWatt.",
+      "no_series": "El IoTaWatt no tiene entradas ni salidas configuradas.",
+      "bad_windows": "Indica al menos una ventana en segundos entre 1 y 3600, separadas por comas."
+    },
+    "abort": {
+      "already_configured": "Este IoTaWatt ya está configurado."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Ajustes de IoTaWatt Plus",
+        "data": {
+          "scan_interval": "Intervalo de lectura de potencia",
+          "energy_interval": "Intervalo de lectura de energía",
+          "device_interval": "Intervalo de lectura del diagnóstico",
+          "request_timeout": "Tiempo máximo de espera",
+          "deadband": "Cambio mínimo para guardar un valor",
+          "max_age": "Guardar al menos cada",
+          "grid_series": "Canal de la red eléctrica",
+          "surplus_windows": "Ventanas de media del excedente",
+          "channels": "Canales"
+        },
+        "data_description": {
+          "scan_interval": "Cada cuánto se consulta la potencia (2–60 s). Las automatizaciones ven siempre el último valor.",
+          "energy_interval": "Cada cuánto se leen los kWh acumulados que calcula el IoTaWatt.",
+          "device_interval": "Cada cuánto se leen firmware, WiFi y tiempo encendido.",
+          "request_timeout": "Espera máxima de cada consulta antes de marcar los sensores como no disponibles.",
+          "deadband": "Solo se guarda un nuevo estado de potencia si cambia al menos esto. Reduce mucho el tamaño de la base de datos.",
+          "max_age": "Aunque no cambie, el valor se guarda como mínimo cada este tiempo.",
+          "grid_series": "Canal con signo: positivo = importas de la red, negativo = inyectas.",
+          "surplus_windows": "Segundos separados por comas. Se crea un sensor de «excedente medio» por cada ventana (p. ej. 30, 60, 300).",
+          "channels": "Entradas y salidas para las que se crean sensores. Déjalo vacío para todas."
+        }
+      }
+    },
+    "error": {
+      "bad_windows": "Indica al menos una ventana en segundos entre 1 y 3600, separadas por comas."
+    }
+  },
+  "entity": {
+    "sensor": {
+      "grid_import": {
+        "name": "Importación red"
+      },
+      "grid_export": {
+        "name": "Excedente"
+      },
+      "voltage": {
+        "name": "Tensión"
+      },
+      "frequency": {
+        "name": "Frecuencia"
+      },
+      "latency": {
+        "name": "Tiempo de respuesta"
+      },
+      "rssi": {
+        "name": "Señal WiFi"
+      },
+      "uptime": {
+        "name": "Tiempo encendido"
+      },
+      "channel_energy": {
+        "name": "{channel} energía"
+      },
+      "surplus_avg": {
+        "name": "Excedente medio {window}"
+      }
+    }
+  }
+}

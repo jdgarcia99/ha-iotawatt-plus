@@ -1,0 +1,109 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "IoTaWatt Plus",
+        "description": "IP address or hostname of the IoTaWatt on your network.",
+        "data": {
+          "host": "Host"
+        }
+      },
+      "settings": {
+        "title": "IoTaWatt Plus settings",
+        "data": {
+          "scan_interval": "Power polling interval",
+          "energy_interval": "Energy polling interval",
+          "device_interval": "Diagnostics polling interval",
+          "request_timeout": "Request timeout",
+          "deadband": "Minimum change to store a value",
+          "max_age": "Store at least every",
+          "grid_series": "Grid channel",
+          "surplus_windows": "Surplus averaging windows",
+          "channels": "Channels"
+        },
+        "data_description": {
+          "scan_interval": "How often the IoTaWatt is polled for power (2–60 s). Automations always see the latest value.",
+          "energy_interval": "How often the kWh totals computed by the IoTaWatt are read.",
+          "device_interval": "How often firmware, Wi-Fi and uptime are read.",
+          "request_timeout": "Maximum wait for each request before the sensors become unavailable.",
+          "deadband": "A new power state is only stored when it changes at least this much. Greatly reduces database size.",
+          "max_age": "The value is stored at least this often even if unchanged.",
+          "grid_series": "Signed channel: positive = importing, negative = exporting.",
+          "surplus_windows": "Seconds, comma separated. One 'surplus average' sensor is created per window (e.g. 30, 60, 300).",
+          "channels": "Inputs and outputs to create sensors for. Leave empty for all."
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Cannot connect to the IoTaWatt.",
+      "no_series": "The IoTaWatt has no inputs or outputs configured.",
+      "bad_windows": "Enter at least one window in seconds between 1 and 3600, comma separated."
+    },
+    "abort": {
+      "already_configured": "This IoTaWatt is already configured."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "IoTaWatt Plus settings",
+        "data": {
+          "scan_interval": "Power polling interval",
+          "energy_interval": "Energy polling interval",
+          "device_interval": "Diagnostics polling interval",
+          "request_timeout": "Request timeout",
+          "deadband": "Minimum change to store a value",
+          "max_age": "Store at least every",
+          "grid_series": "Grid channel",
+          "surplus_windows": "Surplus averaging windows",
+          "channels": "Channels"
+        },
+        "data_description": {
+          "scan_interval": "How often the IoTaWatt is polled for power (2–60 s). Automations always see the latest value.",
+          "energy_interval": "How often the kWh totals computed by the IoTaWatt are read.",
+          "device_interval": "How often firmware, Wi-Fi and uptime are read.",
+          "request_timeout": "Maximum wait for each request before the sensors become unavailable.",
+          "deadband": "A new power state is only stored when it changes at least this much. Greatly reduces database size.",
+          "max_age": "The value is stored at least this often even if unchanged.",
+          "grid_series": "Signed channel: positive = importing, negative = exporting.",
+          "surplus_windows": "Seconds, comma separated. One 'surplus average' sensor is created per window (e.g. 30, 60, 300).",
+          "channels": "Inputs and outputs to create sensors for. Leave empty for all."
+        }
+      }
+    },
+    "error": {
+      "bad_windows": "Enter at least one window in seconds between 1 and 3600, comma separated."
+    }
+  },
+  "entity": {
+    "sensor": {
+      "grid_import": {
+        "name": "Grid import"
+      },
+      "grid_export": {
+        "name": "Surplus"
+      },
+      "voltage": {
+        "name": "Voltage"
+      },
+      "frequency": {
+        "name": "Frequency"
+      },
+      "latency": {
+        "name": "Response time"
+      },
+      "rssi": {
+        "name": "WiFi signal"
+      },
+      "uptime": {
+        "name": "Uptime"
+      },
+      "channel_energy": {
+        "name": "{channel} energy"
+      },
+      "surplus_avg": {
+        "name": "Surplus average {window}"
+      }
+    }
+  }
+}
