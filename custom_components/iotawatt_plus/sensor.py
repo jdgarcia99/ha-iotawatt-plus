@@ -4,10 +4,13 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass
+from datetime import timedelta
+from functools import partial
 import logging
 import time
 from typing import Any
 
+from homeassistant.components.recorder import get_instance, history
 from homeassistant.components.sensor import (
     RestoreSensor,
     SensorDeviceClass,
@@ -31,6 +34,7 @@ from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.device_registry import CONNECTION_NETWORK_MAC, DeviceInfo
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
+from homeassistant.util import dt as dt_util
 from homeassistant.util.unit_conversion import EnergyConverter
 
 from . import IoTaWattPlusConfigEntry
@@ -38,6 +42,10 @@ from .const import DOMAIN, MANUFACTURER
 from .coordinator import EnergyCoordinator, PowerData
 
 _LOGGER = logging.getLogger(__name__)
+
+# Where a sensor of v0.1.1 or earlier looks for its last value
+RECORDER_LOOKBACK = timedelta(days=30)
+RECORDER_STATES = 50
 
 
 def _device_info(entry: IoTaWattPlusConfigEntry) -> DeviceInfo:
@@ -296,10 +304,35 @@ class PlusEnergySensor(CoordinatorEntity[EnergyCoordinator], RestoreSensor):
             if value is not None:
                 device_time = data.get("device_time")
                 return value, int(device_time) if device_time is not None else None
-        # v0.1.1 and earlier stored no sensor data: use the last state (kWh)
         if (state := await self.async_get_last_state()) is not None:
-            return _to_wh(state.state, state.attributes.get("unit_of_measurement")), None
-        return None, None
+            value = _to_wh(state.state, state.attributes.get("unit_of_measurement"))
+            if value is not None:
+                return value, None
+        # Sensors of v0.1.1 and earlier were not RestoreEntities, so Home Assistant
+        # kept no restore data at all: continue from the recorder's last state
+        return await self._async_recorded_value(), None
+
+    async def _async_recorded_value(self) -> float | None:
+        if "recorder" not in self.hass.config.components:
+            return None
+        # Newest first: the last rows may be unavailable, unknown or empty
+        states = await get_instance(self.hass).async_add_executor_job(
+            partial(
+                history.state_changes_during_period,
+                self.hass,
+                dt_util.utcnow() - RECORDER_LOOKBACK,
+                entity_id=self.entity_id,
+                descending=True,
+                limit=RECORDER_STATES,
+                include_start_time_state=False,
+            )
+        )
+        for state in states.get(self.entity_id, []):
+            value = _to_wh(state.state, state.attributes.get("unit_of_measurement"))
+            if value is not None:
+                _LOGGER.debug("%s continues from its recorded state %s", self.entity_id, state.state)
+                return value
+        return None
 
     @property
     def extra_restore_state_data(self) -> EnergyStoredData:

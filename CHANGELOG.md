@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.3 (unreleased)
+
+### Fixed
+- Energy sensors upgraded from v0.1.1 or earlier continue from their last value instead of 0. Those sensors were not restore entities, so Home Assistant kept no restore data for them: the last numeric state is now read from the recorder (skipping unavailable or unknown rows, up to 30 days back).
+
 ## 0.1.2
 
 ### Fixed

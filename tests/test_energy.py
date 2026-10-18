@@ -7,6 +7,9 @@ from pytest_homeassistant_custom_component.common import (
     mock_restore_cache,
     mock_restore_cache_with_extra_data,
 )
+from pytest_homeassistant_custom_component.components.recorder.common import (
+    async_wait_recording_done,
+)
 
 from .conftest import setup_entry
 
@@ -80,14 +83,36 @@ async def test_restore_and_backfill_downtime(hass, fake_iotawatt) -> None:
     ]
 
 
-async def test_restore_state_of_previous_version(hass, fake_iotawatt) -> None:
-    # v0.1.1 kept no sensor data, only the state in kWh
+async def test_restore_from_last_state_without_sensor_data(hass, fake_iotawatt) -> None:
     mock_restore_cache(hass, (State(INDUCTION, "2.5", {"unit_of_measurement": "kWh"}),))
     entry = await setup_entry(hass, fake_iotawatt)
     assert hass.states.get(INDUCTION).state == "2.5"
     fake_iotawatt.now += 100
     await _refresh(hass, entry)
     assert hass.states.get(INDUCTION).state == "2.502"  # + 100 s x 0.02 Wh/s
+
+
+async def test_migration_from_v0_1_1_uses_recorder(recorder_mock, hass, fake_iotawatt) -> None:
+    # v0.1.1 sensors were not RestoreEntities: Home Assistant kept no restore
+    # data for them, and their last value is only in the recorder database
+    hass.states.async_set(INDUCTION, "2.5", {"unit_of_measurement": "kWh"})
+    hass.states.async_set(GRID, "-1.25", {"unit_of_measurement": "kWh"})
+    await async_wait_recording_done(hass)
+    # The newest rows are often not numbers: skip them
+    hass.states.async_set(INDUCTION, "unavailable", {"unit_of_measurement": "kWh"})
+    hass.states.async_set(GRID, "unknown")
+    await async_wait_recording_done(hass)
+    hass.states.async_remove(INDUCTION)
+    hass.states.async_remove(GRID)
+
+    entry = await setup_entry(hass, fake_iotawatt)
+    assert hass.states.get(INDUCTION).state == "2.5"
+    assert hass.states.get(GRID).state == "-1.25"
+    assert hass.states.get(PV1).state == "0.0"  # nothing recorded: starts from 0
+    fake_iotawatt.now += 100
+    await _refresh(hass, entry)
+    assert hass.states.get(INDUCTION).state == "2.502"  # + 100 s x 0.02 Wh/s
+    assert hass.states.get(GRID).state == "-1.225"  # + 100 s x 0.25 Wh/s
 
 
 async def test_negative_delta_ignored_on_consumption_channel(hass, fake_iotawatt, caplog) -> None:

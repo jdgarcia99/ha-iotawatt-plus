@@ -1,6 +1,9 @@
 {
   "domain": "iotawatt_plus",
   "name": "IoTaWatt Plus",
+  "after_dependencies": [
+    "recorder"
+  ],
   "codeowners": [
     "@jdgarcia99"
   ],
@@ -10,5 +13,5 @@
   "iot_class": "local_polling",
   "issue_tracker": "https://github.com/jdgarcia99/ha-iotawatt-plus/issues",
   "requirements": [],
-  "version": "0.1.2"
+  "version": "0.1.3"
 }

@@ -70,8 +70,11 @@ class FakeIoTaWatt:
 
 
 @pytest.fixture(autouse=True)
-def auto_enable_custom_integrations(enable_custom_integrations):
-    yield
+def auto_enable_custom_integrations(request):
+    # The recorder must be prepared before hass, which enable_custom_integrations creates
+    if "recorder_mock" in request.fixturenames:
+        request.getfixturevalue("recorder_mock")
+    request.getfixturevalue("enable_custom_integrations")
 
 
 @pytest.fixture(autouse=True)
