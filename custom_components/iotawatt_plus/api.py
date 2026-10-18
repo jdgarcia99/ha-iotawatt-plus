@@ -4,11 +4,15 @@ from __future__ import annotations
 
 import asyncio
 from dataclasses import dataclass, field
+import logging
 from typing import Any
 
 import aiohttp
 
-from .const import DEFAULT_TIMEOUT
+from . import const
+from .const import DEFAULT_QUERY_TIMEOUT, DEFAULT_TIMEOUT
+
+_LOGGER = logging.getLogger(__name__)
 
 
 class IoTaWattError(Exception):
@@ -45,20 +49,31 @@ def _num(value: Any) -> float | None:
 
 
 class IoTaWattClient:
-    """Access to the IoTaWatt /status and /query endpoints."""
+    """Access to the IoTaWatt /status and /query endpoints.
+
+    The IoTaWatt (an ESP8266) copes badly with parallel requests, so every
+    request of a client goes through one lock: the power, energy and
+    diagnostics coordinators share the client and never query in parallel.
+    """
 
     def __init__(
-        self, session: aiohttp.ClientSession, host: str, timeout: float = DEFAULT_TIMEOUT
+        self,
+        session: aiohttp.ClientSession,
+        host: str,
+        timeout: float = DEFAULT_TIMEOUT,
+        query_timeout: float = DEFAULT_QUERY_TIMEOUT,
     ) -> None:
         self._session = session
         self._timeout = timeout
+        self._query_timeout = query_timeout
+        self._lock = asyncio.Lock()
         self.host = host.strip().rstrip("/")
         if not self.host.startswith("http"):
             self.host = f"http://{self.host}"
 
-    async def _get_json(self, path: str) -> Any:
+    async def _request(self, path: str, timeout: float) -> Any:
         try:
-            async with asyncio.timeout(self._timeout):
+            async with asyncio.timeout(timeout):
                 async with self._session.get(f"{self.host}{path}") as resp:
                     if resp.status != 200:
                         raise IoTaWattError(f"HTTP {resp.status} on {path}")
@@ -66,6 +81,17 @@ class IoTaWattClient:
                     return await resp.json(content_type=None)
         except (TimeoutError, aiohttp.ClientError, ValueError) as err:
             raise IoTaWattError(f"{type(err).__name__} on {path}: {err}") from err
+
+    async def _get_json(self, path: str) -> Any:
+        """GET with one retry; the datalog (/query) gets the longer timeout."""
+        timeout = self._query_timeout if path.startswith("/query") else self._timeout
+        async with self._lock:
+            try:
+                return await self._request(path, timeout)
+            except IoTaWattError as err:
+                _LOGGER.debug("Retrying after %s", err)
+            await asyncio.sleep(const.RETRY_DELAY)
+            return await self._request(path, timeout)
 
     async def get_series(self) -> list[Series]:
         """Input and output names, in IoTaWatt order."""
@@ -121,8 +147,16 @@ class IoTaWattClient:
                 live.watts[item["name"]] = value
         return live
 
-    async def get_energy(self, names: list[str], begin: int) -> dict[str, float]:
-        """Accumulated Wh of each series from `begin` (UTC epoch) until now."""
+    async def get_time(self) -> int:
+        """Current time of the IoTaWatt clock (Unix seconds), which may differ from ours."""
+        data = await self._get_json("/status?stats")
+        now = _num((data.get("stats") or {}).get("currenttime"))
+        if now is None:
+            raise IoTaWattError("No currenttime in /status?stats")
+        return int(now)
+
+    async def get_energy(self, names: list[str], begin: int, end: int) -> dict[str, float]:
+        """Wh of each series between two times of the IoTaWatt clock (Unix seconds)."""
         if not names:
             return {}
         result: dict[str, float] = {}
@@ -131,7 +165,7 @@ class IoTaWattClient:
             chunk = names[i : i + 8]
             select = ",".join(f"{n}.wh.d3" for n in chunk)
             data = await self._get_json(
-                f"/query?select=[{select}]&begin={begin}&end=s&group=all&format=json"
+                f"/query?select=[{select}]&begin={begin}&end={end}&group=all&format=json"
             )
             row = data[0] if isinstance(data, list) and data else []
             for name, value in zip(chunk, row):

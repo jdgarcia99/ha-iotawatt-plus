@@ -5,16 +5,19 @@ Custom Home Assistant integration (domain `iotawatt_plus`), distributed through 
 ## Layout
 
 - `custom_components/iotawatt_plus/`
-  - `api.py`: HTTP client for the IoTaWatt local API (`/status`, `/query`). Inputs are matched by channel number, outputs by name.
-  - `coordinator.py`: three coordinators: power (fast, also derives grid import/export and surplus averages), energy (Wh computed by the IoTaWatt) and device diagnostics.
-  - `sensor.py`: entities. `PlusPowerSensor` applies the deadband/max-age write filter. Entities of channels or windows that are no longer configured are removed from the registry.
+  - `api.py`: HTTP client for the IoTaWatt local API (`/status`, `/query`). Inputs are matched by channel number, outputs by name. All requests of a client go through one `asyncio.Lock` (the ESP8266 copes badly with parallel requests), are retried once, and `/query` has its own, longer timeout.
+  - `coordinator.py`: three coordinators sharing one client: power (fast, also derives grid import/export and surplus averages), energy and device diagnostics. `FailureTracker` keeps the last data through isolated failures and logs debug / warning after 3 in a row / info on recovery.
+  - Energy: the coordinator reads Wh in consecutive windows whose `begin`/`end` are times of the IoTaWatt's own clock (`/status?stats` `currenttime`, multiples of 5 s), never Home Assistant's, because that clock can be off. It publishes only deltas; `PlusEnergySensor` (a `RestoreSensor`) adds them up and stores its total with the device time it was counted up to, so restarts backfill the gap. Bidirectional channels use `total` and signed deltas; others use `total_increasing` and drop negative deltas.
+  - `sensor.py`: entities. `PlusPowerSensor` applies the deadband/max-age write filter. Entities of channels or windows that are no longer configured are removed from the registry. Unique IDs (`<uid>_power_<name>`, `<uid>_energy_<name>`, ...) must never change: the Energy dashboard and statistics depend on them.
   - `config_flow.py`: config flow (host, then settings) and options flow. Both share `settings_schema()`.
   - `const.py`: `CONF_*` keys, `DEFAULT_*` values and limits.
   - `strings.json`, `translations/en.json`, `translations/es.json`: UI text.
   - `brand/`: icon and logos (light and `dark_` variants, `@2x`) used by Home Assistant and the HACS brands check.
 - `images/`: `icon.svg` (source of the icon) and `banner.png` (README header).
-- `tests/`: pytest with `pytest-homeassistant-custom-component`. `test_integration.py` runs the full flow against a fake IoTaWatt served by `aiohttp`; `test_api.py` checks the client with payloads captured from real firmware.
-- `scripts/smoke_test.py`: runs `IoTaWattClient` against a real IoTaWatt (`python scripts/smoke_test.py <host>`). GET requests only; never change the device configuration. Only needs `aiohttp`.
+- `tests/`: pytest with `pytest-homeassistant-custom-component`. `conftest.py` serves a fake IoTaWatt over `aiohttp` (own clock, constant Wh rate per series, forced failures). `test_integration.py` runs the config and options flows; `test_energy.py` covers state classes, restore and accumulation; `test_reliability.py` the failure handling; `test_api.py` the client, with payloads captured from real firmware.
+- `CHANGELOG.md`: one section per version.
+- `scripts/smoke_test.py`: runs `IoTaWattClient` against a real IoTaWatt (`python scripts/smoke_test.py <host>`). Only needs `aiohttp`.
+- Only GET requests are ever sent to the IoTaWatt: never change its configuration.
 - `.github/workflows/validate.yml`: **Validate** workflow (hassfest, HACS action and tests). It must stay green.
 
 ## Conventions
@@ -32,7 +35,7 @@ Custom Home Assistant integration (domain `iotawatt_plus`), distributed through 
 ### Every change
 - Includes **tests** that cover it.
 - **Bumps `version` in `custom_components/iotawatt_plus/manifest.json`** (semantic versioning: patch for fixes, minor for features).
-- Updates the README when behaviour or settings change.
+- Updates the README when behaviour or settings change, and adds an entry to `CHANGELOG.md`.
 - Keeps the style of the surrounding code: type hints, short docstrings, Home Assistant import layout.
 
 ### Commits and releases

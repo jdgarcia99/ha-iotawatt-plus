@@ -15,22 +15,28 @@
           "energy_interval": "Intervalo de lectura de energía",
           "device_interval": "Intervalo de lectura del diagnóstico",
           "request_timeout": "Tiempo máximo de espera",
+          "query_timeout": "Tiempo máximo de espera del registro",
           "deadband": "Cambio mínimo para guardar un valor",
           "max_age": "Guardar al menos cada",
           "grid_series": "Canal de la red eléctrica",
           "surplus_windows": "Ventanas de media del excedente",
-          "channels": "Canales"
+          "channels": "Canales",
+          "bidirectional_channels": "Canales bidireccionales",
+          "energy_exclude": "Canales sin sensor de energía"
         },
         "data_description": {
           "scan_interval": "Cada cuánto se consulta la potencia (2–60 s). Las automatizaciones ven siempre el último valor.",
           "energy_interval": "Cada cuánto se leen los kWh acumulados que calcula el IoTaWatt.",
           "device_interval": "Cada cuánto se leen firmware, WiFi y tiempo encendido.",
-          "request_timeout": "Espera máxima de cada consulta antes de marcar los sensores como no disponibles.",
+          "request_timeout": "Espera máxima de cada lectura instantánea (/status). Una lectura fallida se reintenta una vez; los sensores mantienen su valor hasta que es más antiguo que «Guardar al menos cada».",
+          "query_timeout": "Espera máxima de cada consulta al registro (/query): totales de energía y lista de canales. El registro responde más despacio que las lecturas instantáneas.",
           "deadband": "Solo se guarda un nuevo estado de potencia si cambia al menos esto. Reduce mucho el tamaño de la base de datos.",
           "max_age": "Aunque no cambie, el valor se guarda como mínimo cada este tiempo.",
           "grid_series": "Canal con signo: positivo = importas de la red, negativo = inyectas.",
           "surplus_windows": "Segundos separados por comas. Se crea un sensor de «excedente medio» por cada ventana (p. ej. 30, 60, 300).",
-          "channels": "Entradas y salidas para las que se crean sensores. Déjalo vacío para todas."
+          "channels": "Entradas y salidas para las que se crean sensores. Déjalo vacío para todas.",
+          "bidirectional_channels": "Separados por comas. Su energía puede bajar (por ejemplo la acometida o la línea de un inversor), así que usan la clase de estado «total» y la energía negativa se suma con su signo. El canal de la red es siempre bidireccional. Los demás canales ignoran la energía negativa.",
+          "energy_exclude": "No se crea sensor de energía para estos canales (por ejemplo una salida que suma canales con signo). Su sensor de potencia se mantiene."
         }
       }
     },
@@ -52,22 +58,28 @@
           "energy_interval": "Intervalo de lectura de energía",
           "device_interval": "Intervalo de lectura del diagnóstico",
           "request_timeout": "Tiempo máximo de espera",
+          "query_timeout": "Tiempo máximo de espera del registro",
           "deadband": "Cambio mínimo para guardar un valor",
           "max_age": "Guardar al menos cada",
           "grid_series": "Canal de la red eléctrica",
           "surplus_windows": "Ventanas de media del excedente",
-          "channels": "Canales"
+          "channels": "Canales",
+          "bidirectional_channels": "Canales bidireccionales",
+          "energy_exclude": "Canales sin sensor de energía"
         },
         "data_description": {
           "scan_interval": "Cada cuánto se consulta la potencia (2–60 s). Las automatizaciones ven siempre el último valor.",
           "energy_interval": "Cada cuánto se leen los kWh acumulados que calcula el IoTaWatt.",
           "device_interval": "Cada cuánto se leen firmware, WiFi y tiempo encendido.",
-          "request_timeout": "Espera máxima de cada consulta antes de marcar los sensores como no disponibles.",
+          "request_timeout": "Espera máxima de cada lectura instantánea (/status). Una lectura fallida se reintenta una vez; los sensores mantienen su valor hasta que es más antiguo que «Guardar al menos cada».",
+          "query_timeout": "Espera máxima de cada consulta al registro (/query): totales de energía y lista de canales. El registro responde más despacio que las lecturas instantáneas.",
           "deadband": "Solo se guarda un nuevo estado de potencia si cambia al menos esto. Reduce mucho el tamaño de la base de datos.",
           "max_age": "Aunque no cambie, el valor se guarda como mínimo cada este tiempo.",
           "grid_series": "Canal con signo: positivo = importas de la red, negativo = inyectas.",
           "surplus_windows": "Segundos separados por comas. Se crea un sensor de «excedente medio» por cada ventana (p. ej. 30, 60, 300).",
-          "channels": "Entradas y salidas para las que se crean sensores. Déjalo vacío para todas."
+          "channels": "Entradas y salidas para las que se crean sensores. Déjalo vacío para todas.",
+          "bidirectional_channels": "Separados por comas. Su energía puede bajar (por ejemplo la acometida o la línea de un inversor), así que usan la clase de estado «total» y la energía negativa se suma con su signo. El canal de la red es siempre bidireccional. Los demás canales ignoran la energía negativa.",
+          "energy_exclude": "No se crea sensor de energía para estos canales (por ejemplo una salida que suma canales con signo). Su sensor de potencia se mantiene."
         }
       }
     },

@@ -81,15 +81,16 @@ async def main() -> int:
             raw = await _timed("raw /status?device&wifi&stats", client._get_json("/status?device&wifi&stats"))
             print(f"missing fields: {', '.join(missing)}\n{raw}")
 
-        # The device answers relative times ("s-1h") with its own clock and
-        # epoch times as given, so compare both with the device clock.
-        stats = (await client._get_json("/status?stats")).get("stats", {})
-        device_now = int(stats.get("currenttime") or time.time())
-        print(f"\nclock offset (device - local): {device_now - int(time.time())} s")
-        begin = device_now - 3600
-        energy = await _timed(
-            f"get_energy([{args.grid}], begin={begin})", client.get_energy([args.grid], begin)
+        # Energy windows use the IoTaWatt's own clock, which may differ from ours
+        device_now = await _timed("get_time()", client.get_time())
+        print(f"device clock {device_now}, offset (device - local): {device_now - int(time.time())} s")
+        end = device_now // 5 * 5
+        begin, middle = end - 3600, end - 1800
+        hour = await _timed(
+            f"get_energy([{args.grid}], {begin}, {end})", client.get_energy([args.grid], begin, end)
         )
+        first = await client.get_energy([args.grid], begin, middle)
+        second = await client.get_energy([args.grid], middle, end)
         raw = await _timed(
             f"raw /query {args.grid}.wh begin=s-1h",
             client._get_json(
@@ -97,11 +98,17 @@ async def main() -> int:
             ),
         )
         relative = api._num(raw[0][0]) if raw and raw[0] else None
-        epoch = energy.get(args.grid)
-        print(f"epoch begin   {_fmt(epoch, ' Wh')}")
-        print(f"relative s-1h {_fmt(relative, ' Wh')}")
-        ok = epoch is not None and relative is not None and abs(epoch - relative) <= max(5.0, abs(relative) * 0.01)
-        print("energy check: " + ("OK, epoch begin matches s-1h" if ok else "MISMATCH"))
+        whole = hour.get(args.grid)
+        halves = (first.get(args.grid) or 0) + (second.get(args.grid) or 0)
+        print(f"last hour (device epochs) {_fmt(whole, ' Wh')}")
+        print(f"two chained half hours    {round(halves, 3)} Wh")
+        print(f"relative s-1h             {_fmt(relative, ' Wh')}")
+
+        def close(a: float | None, b: float | None) -> bool:
+            return a is not None and b is not None and abs(a - b) <= max(5.0, abs(b) * 0.01)
+
+        ok = close(whole, relative) and close(halves, whole)
+        print("energy check: " + ("OK, chained windows match" if ok else "MISMATCH"))
         return 0 if ok and not missing else 1
 
 

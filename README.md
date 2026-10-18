@@ -21,7 +21,7 @@ The core IoTaWatt integration polls every 30 seconds. IoTaWatt Plus polls as oft
 ## Features
 
 - **Power for every input and output** (for example `House` and `Solar`), every 5 s by default. Inputs are matched by channel number and outputs by name, never by position.
-- **Accumulated energy (kWh) per channel**, computed by the IoTaWatt itself. Exact and ready for the Energy dashboard.
+- **Accumulated energy (kWh) per channel**, from the IoTaWatt's own datalog. Exact, ready for the Energy dashboard, and kept across restarts: the energy used while Home Assistant was down is added when it starts again.
 - **Grid and surplus sensors** from the signed grid channel:
   - *Grid import*: what you are buying now (W).
   - *Surplus*: what you are exporting now (W).
@@ -29,7 +29,8 @@ The core IoTaWatt integration polls every 30 seconds. IoTaWatt Plus polls as oft
 - **Voltage and frequency.**
 - **Diagnostics** (disabled by default): response time, Wi-Fi signal and uptime.
 - **Database friendly.** Automations always see the latest reading, but a new state is only written when power changes by at least the configured deadband (10 W by default), or at least once per configured interval.
-- **Fails safe.** If the IoTaWatt stops answering, sensors become *unavailable* instead of freezing on the last value.
+- **Gentle with the IoTaWatt.** Requests are never sent in parallel, and a failed request is retried once.
+- **Fails safe.** An isolated failed reading keeps the last value; if the IoTaWatt stops answering for longer than *Store at least every*, sensors become *unavailable* instead of freezing on the last value.
 - **Fully configurable from the UI**, both during setup and later from *Configure*.
 
 ## Installation
@@ -60,15 +61,20 @@ All settings can be changed later from **Settings → Devices & services → IoT
 | Grid channel | `Grid` | Signed channel: positive = importing, negative = exporting. |
 | Surplus averaging windows | `30, 60, 300` | Seconds, comma separated. One sensor per window. |
 | Channels | all | Inputs and outputs that get sensors. Removed channels are deleted. |
+| Bidirectional channels | `Grid, PV1, PV2, Solar` | Comma separated. Channels whose energy can go down; they use `state_class: total`. |
+| Channels without energy sensor | none | No energy sensor is created for these (the power sensor is kept). |
 | Energy polling interval | 60 s | How often kWh totals are read. |
 | Diagnostics polling interval | 5 min | Firmware, Wi-Fi and uptime. |
-| Request timeout | 4 s | Maximum wait per request. |
+| Request timeout | 4 s | Maximum wait for each live reading (`/status`). |
+| Datalog request timeout | 10 s | Maximum wait for each datalog request (`/query`). |
 
 ## Notes
 
-- Energy sensors count from the moment the integration is added.
-- Signed channels (the grid channel, or any channel whose energy is negative) use `state_class: total`; all others use `total_increasing`.
-- It can run alongside the core IoTaWatt integration.
+- Energy sensors count from the moment the integration is added, and their totals are never reset.
+- Energy is read in consecutive windows timed by the IoTaWatt's own clock, so it is exact even if that clock is not in sync with Home Assistant's. After a restart the total continues from its last value and the energy logged meanwhile is added (gaps longer than 31 days are not backfilled).
+- Bidirectional channels (the grid channel is always one) use `state_class: total` and add negative energy with its sign. All other channels use `total_increasing` and ignore negative energy.
+- Output channels that add up signed inputs may not make sense as an energy meter: list them in *Channels without energy sensor*.
+- It can run alongside the core IoTaWatt integration, but the IoTaWatt answers better when only one integration polls it.
 
 ## Development
 

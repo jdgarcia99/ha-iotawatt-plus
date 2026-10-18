@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import time
 from typing import Any
 
 import voluptuous as vol
@@ -15,13 +14,15 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from .api import IoTaWattClient, IoTaWattError
 from .const import (
+    CONF_BIDIRECTIONAL,
     CONF_CHANNELS,
     CONF_DEADBAND,
     CONF_DEVICE_INTERVAL,
+    CONF_ENERGY_EXCLUDE,
     CONF_ENERGY_INTERVAL,
-    CONF_ENERGY_START,
     CONF_GRID_SERIES,
     CONF_MAX_AGE,
+    CONF_QUERY_TIMEOUT,
     CONF_SCAN_INTERVAL,
     CONF_SURPLUS_WINDOWS,
     CONF_TIMEOUT,
@@ -29,6 +30,7 @@ from .const import (
     DOMAIN,
     MAX_SCAN_INTERVAL,
     MIN_SCAN_INTERVAL,
+    parse_names,
     parse_windows,
 )
 
@@ -41,6 +43,14 @@ def _number(minimum: float, maximum: float, step: float, unit: str) -> selector.
             step=step,
             unit_of_measurement=unit,
             mode=selector.NumberSelectorMode.BOX,
+        )
+    )
+
+
+def _channel_list(channels: list[str]) -> selector.SelectSelector:
+    return selector.SelectSelector(
+        selector.SelectSelectorConfig(
+            options=channels, multiple=True, mode=selector.SelectSelectorMode.DROPDOWN
         )
     )
 
@@ -64,11 +74,11 @@ def settings_schema(values: dict[str, Any], channels: list[str]) -> vol.Schema:
                 selector.SelectSelectorConfig(options=channels)
             ),
             vol.Required(CONF_SURPLUS_WINDOWS, default=v[CONF_SURPLUS_WINDOWS]): str,
-            vol.Optional(CONF_CHANNELS, default=v[CONF_CHANNELS] or []): selector.SelectSelector(
-                selector.SelectSelectorConfig(
-                    options=channels, multiple=True, mode=selector.SelectSelectorMode.DROPDOWN
-                )
-            ),
+            vol.Optional(CONF_CHANNELS, default=v[CONF_CHANNELS] or []): _channel_list(channels),
+            vol.Optional(CONF_BIDIRECTIONAL, default=v[CONF_BIDIRECTIONAL]): str,
+            vol.Optional(
+                CONF_ENERGY_EXCLUDE, default=[n for n in v[CONF_ENERGY_EXCLUDE] or [] if n in channels]
+            ): _channel_list(channels),
             vol.Required(CONF_ENERGY_INTERVAL, default=v[CONF_ENERGY_INTERVAL]): _number(
                 30, 3600, 10, "s"
             ),
@@ -76,6 +86,9 @@ def settings_schema(values: dict[str, Any], channels: list[str]) -> vol.Schema:
                 1, 60, 1, "min"
             ),
             vol.Required(CONF_TIMEOUT, default=v[CONF_TIMEOUT]): _number(1, 15, 1, "s"),
+            vol.Required(CONF_QUERY_TIMEOUT, default=v[CONF_QUERY_TIMEOUT]): _number(
+                2, 60, 1, "s"
+            ),
         }
     )
 
@@ -88,6 +101,8 @@ def _clean(user_input: dict[str, Any]) -> dict[str, Any] | None:
     data = dict(user_input)
     data[CONF_SURPLUS_WINDOWS] = ", ".join(str(w) for w in windows)
     data[CONF_CHANNELS] = list(user_input.get(CONF_CHANNELS) or [])
+    data[CONF_BIDIRECTIONAL] = ", ".join(parse_names(user_input.get(CONF_BIDIRECTIONAL)))
+    data[CONF_ENERGY_EXCLUDE] = list(user_input.get(CONF_ENERGY_EXCLUDE) or [])
     return data
 
 
@@ -139,7 +154,7 @@ class IoTaWattPlusConfigFlow(ConfigFlow, domain=DOMAIN):
             else:
                 return self.async_create_entry(
                     title="IoTaWatt Plus",
-                    data={CONF_HOST: self._host, CONF_ENERGY_START: int(time.time())},
+                    data={CONF_HOST: self._host},
                     options=options,
                 )
         return self.async_show_form(

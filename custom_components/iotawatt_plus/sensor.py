@@ -3,13 +3,17 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from dataclasses import dataclass
+import logging
 import time
 from typing import Any
 
 from homeassistant.components.sensor import (
+    RestoreSensor,
     SensorDeviceClass,
     SensorEntity,
     SensorEntityDescription,
+    SensorExtraStoredData,
     SensorStateClass,
 )
 from homeassistant.const import (
@@ -22,14 +26,18 @@ from homeassistant.const import (
     UnitOfTime,
 )
 from homeassistant.core import HomeAssistant, callback
+from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.device_registry import CONNECTION_NETWORK_MAC, DeviceInfo
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
+from homeassistant.util.unit_conversion import EnergyConverter
 
-from . import IoTaWattPlusConfigEntry, get_settings
-from .const import CONF_GRID_SERIES, DOMAIN, MANUFACTURER
-from .coordinator import PowerData
+from . import IoTaWattPlusConfigEntry
+from .const import DOMAIN, MANUFACTURER
+from .coordinator import EnergyCoordinator, PowerData
+
+_LOGGER = logging.getLogger(__name__)
 
 
 def _device_info(entry: IoTaWattPlusConfigEntry) -> DeviceInfo:
@@ -53,7 +61,6 @@ async def async_setup_entry(
     async_add_entities: AddConfigEntryEntitiesCallback,
 ) -> None:
     rt = entry.runtime_data
-    grid_series = get_settings(entry)[CONF_GRID_SERIES]
     dev = _device_info(entry)
     uid = entry.unique_id or entry.entry_id
     entities: list[SensorEntity] = []
@@ -78,8 +85,9 @@ async def async_setup_entry(
                 lambda d, n=s.name: d.live.watts.get(n), rt.deadband, rt.max_age,
             )
         )
-        signed = s.name == grid_series or (rt.energy.data or {}).get(s.name, 0) < 0
-        entities.append(PlusEnergySensor(rt.energy, dev, uid, s.name, signed))
+        if s.name in rt.energy_channels:
+            signed = s.name.casefold() in rt.bidirectional
+            entities.append(PlusEnergySensor(rt.energy, dev, uid, s.name, signed))
 
     # Grid and surplus
     entities += [
@@ -184,6 +192,7 @@ class PlusPowerSensor(CoordinatorEntity, SensorEntity):
         self._max_age = max_age
         self._written: float | None = None
         self._written_at = 0.0
+        self._written_available: bool | None = None
         self._attr_native_value = self._read()
 
     def _read(self) -> float | None:
@@ -196,18 +205,19 @@ class PlusPowerSensor(CoordinatorEntity, SensorEntity):
     @callback
     def _handle_coordinator_update(self) -> None:
         value = self._read()
+        self._attr_native_value = value
+        available = self.available
         now = time.monotonic()
         changed = (
             value is None
             or self._written is None
+            or available != self._written_available
             or abs(value - self._written) >= self._deadband
             or (value == 0) != (self._written == 0)
             or now - self._written_at >= self._max_age
-            or not self.coordinator.last_update_success
         )
-        self._attr_native_value = value
         if changed:
-            self._written, self._written_at = value, now
+            self._written, self._written_at, self._written_available = value, now, available
             self.async_write_ha_state()
 
     @property
@@ -215,8 +225,37 @@ class PlusPowerSensor(CoordinatorEntity, SensorEntity):
         return super().available and self._attr_native_value is not None
 
 
-class PlusEnergySensor(CoordinatorEntity, SensorEntity):
-    """Accumulated energy (Wh) computed by the IoTaWatt itself."""
+@dataclass
+class EnergyStoredData(SensorExtraStoredData):
+    """Restored energy total and the IoTaWatt time it was counted up to."""
+
+    device_time: int | None = None
+
+    def as_dict(self) -> dict[str, Any]:
+        return {**super().as_dict(), "device_time": self.device_time}
+
+
+def _to_wh(value: Any, unit: str | None) -> float | None:
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return None
+    if unit and unit != UnitOfEnergy.WATT_HOUR:
+        try:
+            return EnergyConverter.convert(number, unit, UnitOfEnergy.WATT_HOUR)
+        except HomeAssistantError:  # unknown unit, nothing to restore
+            return None
+    return number
+
+
+class PlusEnergySensor(CoordinatorEntity[EnergyCoordinator], RestoreSensor):
+    """Energy total (Wh) built by adding the deltas logged by the IoTaWatt.
+
+    The total survives restarts: it is restored with the IoTaWatt time it was
+    counted up to, and the energy since then is backfilled. Consumption
+    channels (total_increasing) ignore negative deltas; bidirectional ones
+    (total) add them with their sign and are never reset.
+    """
 
     _attr_has_entity_name = True
     _attr_device_class = SensorDeviceClass.ENERGY
@@ -224,22 +263,72 @@ class PlusEnergySensor(CoordinatorEntity, SensorEntity):
     _attr_suggested_unit_of_measurement = UnitOfEnergy.KILO_WATT_HOUR
     _attr_suggested_display_precision = 2
 
-    def __init__(self, coordinator, device: DeviceInfo, uid: str, name: str, signed: bool) -> None:
+    def __init__(
+        self, coordinator: EnergyCoordinator, device: DeviceInfo, uid: str, name: str, signed: bool
+    ) -> None:
         super().__init__(coordinator)
         self._series = name
+        self._signed = signed
         self._attr_translation_key = "channel_energy"
         self._attr_translation_placeholders = {"channel": name}
         self._attr_device_info = device
         self._attr_unique_id = f"{uid}_energy_{name}"
         self._attr_state_class = SensorStateClass.TOTAL if signed else SensorStateClass.TOTAL_INCREASING
+        self._attr_native_value: float | None = 0.0
+        self._device_time: int | None = None
+
+    async def async_added_to_hass(self) -> None:
+        await super().async_added_to_hass()
+        value, device_time = await self._async_restore()
+        if value is not None:
+            self._attr_native_value = value
+        if device_time is not None:
+            self._device_time = device_time
+            self.coordinator.set_anchor(self._series, device_time)
+        else:
+            # Count from the coordinator's first window
+            self._device_time = self.coordinator.anchors.get(self._series)
+
+    async def _async_restore(self) -> tuple[float | None, int | None]:
+        if (extra := await self.async_get_last_extra_data()) is not None:
+            data = extra.as_dict()
+            value = _to_wh(data.get("native_value"), data.get("native_unit_of_measurement"))
+            if value is not None:
+                device_time = data.get("device_time")
+                return value, int(device_time) if device_time is not None else None
+        # v0.1.1 and earlier stored no sensor data: use the last state (kWh)
+        if (state := await self.async_get_last_state()) is not None:
+            return _to_wh(state.state, state.attributes.get("unit_of_measurement")), None
+        return None, None
 
     @property
-    def native_value(self) -> float | None:
-        return (self.coordinator.data or {}).get(self._series)
+    def extra_restore_state_data(self) -> EnergyStoredData:
+        return EnergyStoredData(
+            self._attr_native_value, self._attr_native_unit_of_measurement, self._device_time
+        )
 
-    @property
-    def available(self) -> bool:
-        return super().available and self.native_value is not None
+    @callback
+    def _handle_coordinator_update(self) -> None:
+        delta = (self.coordinator.data or {}).get(self._series)
+        if delta is not None:
+            if self._device_time not in (None, delta.begin):
+                # Out of step: count again from our own time on the next update
+                _LOGGER.debug(
+                    "%s energy window %d-%d does not start at %d",
+                    self._series, delta.begin, delta.end, self._device_time,
+                )
+                self.coordinator.set_anchor(self._series, self._device_time)
+            else:
+                wh = delta.wh
+                if wh < 0 and not self._signed:
+                    _LOGGER.debug(
+                        "Ignoring negative energy delta of %s: %.3f Wh (%d-%d)",
+                        self._series, wh, delta.begin, delta.end,
+                    )
+                    wh = 0.0
+                self._attr_native_value = round((self._attr_native_value or 0.0) + wh, 3)
+                self._device_time = delta.end
+        super()._handle_coordinator_update()
 
 
 class PlusDeviceSensor(CoordinatorEntity, SensorEntity):

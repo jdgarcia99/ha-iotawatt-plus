@@ -15,22 +15,28 @@
           "energy_interval": "Energy polling interval",
           "device_interval": "Diagnostics polling interval",
           "request_timeout": "Request timeout",
+          "query_timeout": "Datalog request timeout",
           "deadband": "Minimum change to store a value",
           "max_age": "Store at least every",
           "grid_series": "Grid channel",
           "surplus_windows": "Surplus averaging windows",
-          "channels": "Channels"
+          "channels": "Channels",
+          "bidirectional_channels": "Bidirectional channels",
+          "energy_exclude": "Channels without energy sensor"
         },
         "data_description": {
           "scan_interval": "How often the IoTaWatt is polled for power (2–60 s). Automations always see the latest value.",
           "energy_interval": "How often the kWh totals computed by the IoTaWatt are read.",
           "device_interval": "How often firmware, Wi-Fi and uptime are read.",
-          "request_timeout": "Maximum wait for each request before the sensors become unavailable.",
+          "request_timeout": "Maximum wait for each live reading (/status). A missed reading is retried once; sensors keep their value until it is older than 'Store at least every'.",
+          "query_timeout": "Maximum wait for each datalog request (/query): energy totals and the channel list. The datalog answers more slowly than live readings.",
           "deadband": "A new power state is only stored when it changes at least this much. Greatly reduces database size.",
           "max_age": "The value is stored at least this often even if unchanged.",
           "grid_series": "Signed channel: positive = importing, negative = exporting.",
           "surplus_windows": "Seconds, comma separated. One 'surplus average' sensor is created per window (e.g. 30, 60, 300).",
-          "channels": "Inputs and outputs to create sensors for. Leave empty for all."
+          "channels": "Inputs and outputs to create sensors for. Leave empty for all.",
+          "bidirectional_channels": "Comma separated. Their energy can go down (for example a grid or inverter line), so it uses state class 'total' and negative energy is added with its sign. The grid channel is always bidirectional. Other channels ignore negative energy.",
+          "energy_exclude": "No energy sensor is created for these channels (for example an output that adds up signed channels). Their power sensor is kept."
         }
       }
     },
@@ -52,22 +58,28 @@
           "energy_interval": "Energy polling interval",
           "device_interval": "Diagnostics polling interval",
           "request_timeout": "Request timeout",
+          "query_timeout": "Datalog request timeout",
           "deadband": "Minimum change to store a value",
           "max_age": "Store at least every",
           "grid_series": "Grid channel",
           "surplus_windows": "Surplus averaging windows",
-          "channels": "Channels"
+          "channels": "Channels",
+          "bidirectional_channels": "Bidirectional channels",
+          "energy_exclude": "Channels without energy sensor"
         },
         "data_description": {
           "scan_interval": "How often the IoTaWatt is polled for power (2–60 s). Automations always see the latest value.",
           "energy_interval": "How often the kWh totals computed by the IoTaWatt are read.",
           "device_interval": "How often firmware, Wi-Fi and uptime are read.",
-          "request_timeout": "Maximum wait for each request before the sensors become unavailable.",
+          "request_timeout": "Maximum wait for each live reading (/status). A missed reading is retried once; sensors keep their value until it is older than 'Store at least every'.",
+          "query_timeout": "Maximum wait for each datalog request (/query): energy totals and the channel list. The datalog answers more slowly than live readings.",
           "deadband": "A new power state is only stored when it changes at least this much. Greatly reduces database size.",
           "max_age": "The value is stored at least this often even if unchanged.",
           "grid_series": "Signed channel: positive = importing, negative = exporting.",
           "surplus_windows": "Seconds, comma separated. One 'surplus average' sensor is created per window (e.g. 30, 60, 300).",
-          "channels": "Inputs and outputs to create sensors for. Leave empty for all."
+          "channels": "Inputs and outputs to create sensors for. Leave empty for all.",
+          "bidirectional_channels": "Comma separated. Their energy can go down (for example a grid or inverter line), so it uses state class 'total' and negative energy is added with its sign. The grid channel is always bidirectional. Other channels ignore negative energy.",
+          "energy_exclude": "No energy sensor is created for these channels (for example an output that adds up signed channels). Their power sensor is kept."
         }
       }
     },
