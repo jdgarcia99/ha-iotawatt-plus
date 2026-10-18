@@ -95,7 +95,6 @@ class IoTaWattClient:
             "mac": (data.get("wifi") or {}).get("mac"),
             "rssi": _num((data.get("wifi") or {}).get("RSSI")),
             "uptime": _num((data.get("stats") or {}).get("runseconds")),
-            "free_heap": _num((data.get("stats") or {}).get("freeheap")),
         }
 
     async def get_live(self, series: list[Series]) -> LiveData:

@@ -1,3 +1,10 @@
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="custom_components/iotawatt_plus/brand/dark_logo@2x.png">
+    <img src="custom_components/iotawatt_plus/brand/logo@2x.png" alt="IoTaWatt Plus" width="350">
+  </picture>
+</p>
+
 # IoTaWatt Plus
 
 [![hacs_badge](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)](https://hacs.xyz/)
@@ -64,6 +71,12 @@ All settings can be changed later from **Settings → Devices & services → IoT
 ```bash
 pip install -r requirements_test.txt
 pytest tests
+```
+
+To check the API client against a real IoTaWatt (GET requests only, nothing is changed on the device; only `aiohttp` is needed):
+
+```bash
+python scripts/smoke_test.py <iotawatt-ip>
 ```
 
 ## License

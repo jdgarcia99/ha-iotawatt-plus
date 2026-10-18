@@ -11,7 +11,10 @@ Custom Home Assistant integration (domain `iotawatt_plus`), distributed through 
   - `config_flow.py`: config flow (host, then settings) and options flow. Both share `settings_schema()`.
   - `const.py`: `CONF_*` keys, `DEFAULT_*` values and limits.
   - `strings.json`, `translations/en.json`, `translations/es.json`: UI text.
-- `tests/`: pytest with `pytest-homeassistant-custom-component` and a fake IoTaWatt served by `aiohttp`.
+  - `brand/`: icon and logos (light and `dark_` variants, `@2x`) used by Home Assistant and the HACS brands check.
+- `images/icon.svg`: source of the icon.
+- `tests/`: pytest with `pytest-homeassistant-custom-component`. `test_integration.py` runs the full flow against a fake IoTaWatt served by `aiohttp`; `test_api.py` checks the client with payloads captured from real firmware.
+- `scripts/smoke_test.py`: runs `IoTaWattClient` against a real IoTaWatt (`python scripts/smoke_test.py <host>`). GET requests only; never change the device configuration. Only needs `aiohttp`.
 - `.github/workflows/validate.yml`: **Validate** workflow (hassfest, HACS action and tests). It must stay green.
 
 ## Conventions
